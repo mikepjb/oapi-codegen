@@ -12,9 +12,39 @@ import (
 	"fmt"
 	"github.com/deepmap/oapi-codegen/pkg/runtime"
 	"github.com/getkin/kin-openapi/openapi3"
+	"github.com/pkg/errors"
 	"net/http"
 	"strings"
 )
+
+// AdditionalPropertiesObject1 defines component schema for AdditionalPropertiesObject1.
+type AdditionalPropertiesObject1 struct {
+	Id                   int            `json:"id"`
+	Name                 string         `json:"name"`
+	Optional             *string        `json:"optional,omitempty"`
+	additionalProperties map[string]int `json:"-"`
+}
+
+// AdditionalPropertiesObject2 defines component schema for AdditionalPropertiesObject2.
+type AdditionalPropertiesObject2 struct {
+	Id   int    `json:"id"`
+	Name string `json:"name"`
+}
+
+// AdditionalPropertiesObject3 defines component schema for AdditionalPropertiesObject3.
+type AdditionalPropertiesObject3 struct {
+	Name                 string                 `json:"name"`
+	additionalProperties map[string]interface{} `json:"-"`
+}
+
+// AdditionalPropertiesObject4 defines component schema for AdditionalPropertiesObject4.
+type AdditionalPropertiesObject4 struct {
+	FieldAp struct {
+		Name                 string                 `json:"name"`
+		additionalProperties map[string]interface{} `json:"-"`
+	} `json:"field_ap"`
+	additionalProperties map[string]interface{} `json:"-"`
+}
 
 // ObjectWithJsonField defines component schema for ObjectWithJsonField.
 type ObjectWithJsonField struct {
@@ -27,6 +57,226 @@ type ObjectWithJsonField struct {
 type SchemaObject struct {
 	FirstName string `json:"firstName"`
 	Role      string `json:"role"`
+}
+
+// Getter for additional properties for AdditionalPropertiesObject1. Returns the specified
+// element and whether it was found
+func (a AdditionalPropertiesObject1) Get(fieldName string) (value int, found bool) {
+	if a.additionalProperties != nil {
+		value, found = a.additionalProperties[fieldName]
+	}
+	return
+}
+
+// Setter for additional properties for AdditionalPropertiesObject1
+func (a *AdditionalPropertiesObject1) Set(fieldName string, value int) {
+	if a.additionalProperties == nil {
+		a.additionalProperties = make(map[string]int)
+	}
+	a.additionalProperties[fieldName] = value
+}
+
+// Override default JSON handling for AdditionalPropertiesObject1 to handle additionalProperties
+func (a *AdditionalPropertiesObject1) UnmarshalJSON(b []byte) error {
+	object := make(map[string]json.RawMessage)
+	err := json.Unmarshal(b, &object)
+	if err != nil {
+		return err
+	}
+
+	if raw, found := object["id"]; found {
+		err = json.Unmarshal(raw, &a.Id)
+		if err != nil {
+			return errors.Wrap(err, "error reading 'id'")
+		}
+		delete(object, "id")
+	}
+
+	if raw, found := object["name"]; found {
+		err = json.Unmarshal(raw, &a.Name)
+		if err != nil {
+			return errors.Wrap(err, "error reading 'name'")
+		}
+		delete(object, "name")
+	}
+
+	if raw, found := object["optional"]; found {
+		err = json.Unmarshal(raw, &a.Optional)
+		if err != nil {
+			return errors.Wrap(err, "error reading 'optional'")
+		}
+		delete(object, "optional")
+	}
+
+	a.additionalProperties = make(map[string]int)
+	for fieldName, fieldBuf := range object {
+		var fieldVal int
+		err := json.Unmarshal(fieldBuf, &fieldVal)
+		if err != nil {
+			return errors.Wrap(err, fmt.Sprintf("error unmarshaling field %s", fieldName))
+		}
+		a.additionalProperties[fieldName] = fieldVal
+	}
+	return nil
+}
+
+// Override default JSON handling for AdditionalPropertiesObject1 to handle additionalProperties
+func (a AdditionalPropertiesObject1) MarshalJSON() ([]byte, error) {
+	var err error
+	object := make(map[string]json.RawMessage)
+
+	object["id"], err = json.Marshal(a.Id)
+	if err != nil {
+		return nil, errors.Wrap(err, fmt.Sprintf("error marshaling 'id'"))
+	}
+
+	object["name"], err = json.Marshal(a.Name)
+	if err != nil {
+		return nil, errors.Wrap(err, fmt.Sprintf("error marshaling 'name'"))
+	}
+
+	if a.Optional != nil {
+		object["optional"], err = json.Marshal(a.Optional)
+		if err != nil {
+			return nil, errors.Wrap(err, fmt.Sprintf("error marshaling 'optional'"))
+		}
+	}
+
+	for fieldName, field := range a.additionalProperties {
+		object[fieldName], err = json.Marshal(field)
+		if err != nil {
+			return nil, errors.Wrap(err, fmt.Sprintf("error marshaling '%s'", fieldName))
+		}
+	}
+	return json.Marshal(object)
+}
+
+// Getter for additional properties for AdditionalPropertiesObject3. Returns the specified
+// element and whether it was found
+func (a AdditionalPropertiesObject3) Get(fieldName string) (value interface{}, found bool) {
+	if a.additionalProperties != nil {
+		value, found = a.additionalProperties[fieldName]
+	}
+	return
+}
+
+// Setter for additional properties for AdditionalPropertiesObject3
+func (a *AdditionalPropertiesObject3) Set(fieldName string, value interface{}) {
+	if a.additionalProperties == nil {
+		a.additionalProperties = make(map[string]interface{})
+	}
+	a.additionalProperties[fieldName] = value
+}
+
+// Override default JSON handling for AdditionalPropertiesObject3 to handle additionalProperties
+func (a *AdditionalPropertiesObject3) UnmarshalJSON(b []byte) error {
+	object := make(map[string]json.RawMessage)
+	err := json.Unmarshal(b, &object)
+	if err != nil {
+		return err
+	}
+
+	if raw, found := object["name"]; found {
+		err = json.Unmarshal(raw, &a.Name)
+		if err != nil {
+			return errors.Wrap(err, "error reading 'name'")
+		}
+		delete(object, "name")
+	}
+
+	a.additionalProperties = make(map[string]interface{})
+	for fieldName, fieldBuf := range object {
+		var fieldVal interface{}
+		err := json.Unmarshal(fieldBuf, &fieldVal)
+		if err != nil {
+			return errors.Wrap(err, fmt.Sprintf("error unmarshaling field %s", fieldName))
+		}
+		a.additionalProperties[fieldName] = fieldVal
+	}
+	return nil
+}
+
+// Override default JSON handling for AdditionalPropertiesObject3 to handle additionalProperties
+func (a AdditionalPropertiesObject3) MarshalJSON() ([]byte, error) {
+	var err error
+	object := make(map[string]json.RawMessage)
+
+	object["name"], err = json.Marshal(a.Name)
+	if err != nil {
+		return nil, errors.Wrap(err, fmt.Sprintf("error marshaling 'name'"))
+	}
+
+	for fieldName, field := range a.additionalProperties {
+		object[fieldName], err = json.Marshal(field)
+		if err != nil {
+			return nil, errors.Wrap(err, fmt.Sprintf("error marshaling '%s'", fieldName))
+		}
+	}
+	return json.Marshal(object)
+}
+
+// Getter for additional properties for AdditionalPropertiesObject4. Returns the specified
+// element and whether it was found
+func (a AdditionalPropertiesObject4) Get(fieldName string) (value interface{}, found bool) {
+	if a.additionalProperties != nil {
+		value, found = a.additionalProperties[fieldName]
+	}
+	return
+}
+
+// Setter for additional properties for AdditionalPropertiesObject4
+func (a *AdditionalPropertiesObject4) Set(fieldName string, value interface{}) {
+	if a.additionalProperties == nil {
+		a.additionalProperties = make(map[string]interface{})
+	}
+	a.additionalProperties[fieldName] = value
+}
+
+// Override default JSON handling for AdditionalPropertiesObject4 to handle additionalProperties
+func (a *AdditionalPropertiesObject4) UnmarshalJSON(b []byte) error {
+	object := make(map[string]json.RawMessage)
+	err := json.Unmarshal(b, &object)
+	if err != nil {
+		return err
+	}
+
+	if raw, found := object["field_ap"]; found {
+		err = json.Unmarshal(raw, &a.FieldAp)
+		if err != nil {
+			return errors.Wrap(err, "error reading 'field_ap'")
+		}
+		delete(object, "field_ap")
+	}
+
+	a.additionalProperties = make(map[string]interface{})
+	for fieldName, fieldBuf := range object {
+		var fieldVal interface{}
+		err := json.Unmarshal(fieldBuf, &fieldVal)
+		if err != nil {
+			return errors.Wrap(err, fmt.Sprintf("error unmarshaling field %s", fieldName))
+		}
+		a.additionalProperties[fieldName] = fieldVal
+	}
+	return nil
+}
+
+// Override default JSON handling for AdditionalPropertiesObject4 to handle additionalProperties
+func (a AdditionalPropertiesObject4) MarshalJSON() ([]byte, error) {
+	var err error
+	object := make(map[string]json.RawMessage)
+
+	object["field_ap"], err = json.Marshal(a.FieldAp)
+	if err != nil {
+		return nil, errors.Wrap(err, fmt.Sprintf("error marshaling 'field_ap'"))
+	}
+
+	for fieldName, field := range a.additionalProperties {
+		object[fieldName], err = json.Marshal(field)
+		if err != nil {
+			return nil, errors.Wrap(err, fmt.Sprintf("error marshaling '%s'", fieldName))
+		}
+	}
+	return json.Marshal(object)
 }
 
 // ParameterObject defines component parameter for "ParameterObject"
@@ -92,13 +342,15 @@ func RegisterHandlers(router runtime.EchoRouter, si ServerInterface) {
 // Base64 encoded, gzipped, json marshaled Swagger object
 var swaggerSpec = []string{
 
-	"H4sIAAAAAAAC/9xTS2/bMAz+Kwa3o2En28237TBgA/bAEqCHIgfVphsGtqSQTNAg8H8vJD/SpAnQa3uy",
-	"SH38HhR8hNK13lm0KlAcwRs2LSpyrP6N1d+HDZYaWqWzijYejfcNlUbJ2XwjzoaelGtsTWRi55GVMDL9",
-	"IGyqcPjMWEMBn/KTbt4PSb6I30Gr61Jg3O6IsYLifmBYhbbik+a+MXQhqQePUIAok32ELkArlJLJB49Q",
-	"gEmmfJBCGIftDvkwiaHod1cNnv9PjcO7S95ziHdWxjB98UFe8lsi1PoGkzFk4k5ig4tA1Fu4I13/Emcn",
-	"7+eRrGnximoKe9PscB6uasetUSggrie9Af3yBujFMqL2pLSa4GOcFM52+cp7TSz651YAds21iwsPEZW+",
-	"oFrFjZOtXRhuqEQreNoU/P65DOxKGuhhiaLJAnkff6s9svSPNM9m2SwAnUdrPEEBX7NZNofuOQAA///B",
-	"iY9adwQAAA==",
+	"H4sIAAAAAAAC/9xVX2/TMBD/KtbBo9WuG095K0IIkICJTeIBVcgkl9WT4/N8145o6ndHdtp0a1NoxV7g",
+	"qbF79/vXy/UBSmoCefTCUDxAMNE0KBjz6XJz+vzjFktJVyV5QZ8fTQjOlkYs+fEtk093XM6xMRkpUsAo",
+	"FjPSW4uuSg8vI9ZQwIvxlnfcNfH4Kn+uuVYrDRHvFjZiBcW3NcIsXQv+lHFwxu5QShsQCmCJ1t/AKpVW",
+	"yGW0IWmEAozq/YGG1A53C4xtT4Ysr6laa/7SX7T/nPMOgwN53pjpDv/JLzlVbJvgUG1MKtqSrVUkoGlV",
+	"2dRi3GXvopM1ycYHvn7Eb73gDUbYo39nWG171TYhRbVKzcp6Ab0Tna2Gsb1pcMC1BgodwVAkTzPNEDox",
+	"zPSmdJOI/k0K54dTqI1j3DX+hpCVJ1HGObofzuBvfT+TtYvD1iQu9pxNkyFWxrcDrto9TydoP032q9Nk",
+	"50n05NuGFqzq9Gqp+7kt52p+aEb3vOSu7yb8ifkZE9ip6hUMZdXl8tXK/AOT7/fPUWo0LI1bYH7Za4qN",
+	"ESggrzh9oPT8iNLhCV0zDVl4sg/3tNc2snw6ZCCSOyLnXKUfQc3y1rS+ptTsbImecZsUfHx/ndDFSoKH",
+	"a2RRVxiX+a9xiZG7+ZqMzkZn3S5Cb4KFAi5GZ6MJrH4FAAD///FETQo7CAAA",
 }
 
 // GetSwagger returns the Swagger specification corresponding to the generated code

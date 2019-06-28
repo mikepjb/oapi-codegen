@@ -14,9 +14,10 @@
 package codegen
 
 import (
-	"errors"
 	"fmt"
 	"github.com/getkin/kin-openapi/openapi3"
+	"github.com/pkg/errors"
+
 	"regexp"
 	"sort"
 	"strings"
@@ -286,4 +287,37 @@ func PrefixKeyword(str, prefix string) string {
 		return prefix + UppercaseFirstCharacter(str)
 	}
 	return str
+}
+
+// According to the spec, additionalProperties may be true, false, or a
+// schema. If not present, true is implied. If it's a schema, true is implied.
+// If it's false, no additional properties are allowed. We're going to act a little
+// differently, in that if you want additionalProperties code to be generated,
+// you must specify an additionalProperties type
+// If additionalProperties it true/false, this field will be non-nil.
+func SchemaHasAdditionalProperties(schema *openapi3.Schema) bool {
+	if schema.AdditionalPropertiesAllowed != nil {
+		return *schema.AdditionalPropertiesAllowed
+	}
+	if schema.AdditionalProperties != nil {
+		return true
+	}
+	return false
+}
+
+// Returns the data type for additional properties, or empty string if there
+// aren't any
+func SchemaAdditionalPropertiesType(schema *openapi3.Schema) (string, error) {
+	if SchemaHasAdditionalProperties(schema) {
+		propType := "interface{}"
+		if schema.AdditionalProperties != nil {
+			var err error
+			propType, err = schemaToGoType(schema.AdditionalProperties, true)
+			if err != nil {
+				return "", errors.Wrap(err, "error converting additional property type to a Go type")
+			}
+		}
+		return propType, nil
+	}
+	return "", nil
 }

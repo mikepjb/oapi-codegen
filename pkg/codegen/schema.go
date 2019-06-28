@@ -10,28 +10,33 @@ import (
 
 // This describes a Schema, a type definition.
 type SchemaDescriptor struct {
-	Required                bool   // Is the schema required? If not, we'll pass by pointer
-	GoType                  string // The Go type needed to represent the json type.
-	GoName                  string // The Go compatible type name for the type
-	JsonName                string // The json type name for the type
-	IsRef                   bool   // Is this schema a reference to predefined object?
-	HasAdditionalProperties bool   // Are additional properties allowed?
+	Fields                   []FieldDescriptor
+	HasAdditionalProperties  bool
+	AdditionalPropertiesType string
+}
+
+type FieldDescriptor struct {
+	Required bool   // Is the schema required? If not, we'll pass by pointer
+	GoType   string // The Go type needed to represent the json type.
+	GoName   string // The Go compatible type name for the type
+	JsonName string // The json type name for the type
+	IsRef    bool   // Is this schema a reference to predefined object?
 }
 
 // Walk the Properties field of the specified schema, generating SchemaDescriptors
 // for each of them.
-func DescribeSchemaProperties(schema *openapi3.Schema) ([]SchemaDescriptor, error) {
-	var desc []SchemaDescriptor
+func DescribeSchemaProperties(schema *openapi3.Schema) (SchemaDescriptor, error) {
+	var fields []FieldDescriptor
 	propNames := SortedSchemaKeys(schema.Properties)
 	for _, propName := range propNames {
 		propOrRef := schema.Properties[propName]
 		propRequired := StringInArray(propName, schema.Required)
 		propType, err := schemaToGoType(propOrRef, propRequired)
 		if err != nil {
-			return nil, fmt.Errorf("error generating type for property '%s': %s", propName, err)
+			return SchemaDescriptor{}, fmt.Errorf("error generating type for property '%s': %s", propName, err)
 		}
 		goFieldName := ToCamelCase(propName)
-		desc = append(desc, SchemaDescriptor{
+		fields = append(fields, FieldDescriptor{
 			Required: propRequired,
 			GoType:   propType,
 			GoName:   goFieldName,
@@ -40,20 +45,41 @@ func DescribeSchemaProperties(schema *openapi3.Schema) ([]SchemaDescriptor, erro
 		})
 	}
 
-	// Here, we may handle additionalProperties in the future.
-	if schema.AdditionalProperties != nil {
-		return nil, errors.New("additional_properties are not yet supported")
-	}
-	if schema.PatternProperties != "" {
-		return nil, errors.New("pattern_properties are not yet supported")
+	schemaDescriptor := SchemaDescriptor{
+		Fields: fields,
 	}
 
-	return desc, nil
+	// According to the spec, additionalProperties may be true, false, or a
+	// schema. If not present, true is implied. If it's a schema, true is implied.
+	// If it's false, no additional properties are allowed. We're going to act a little
+	// differently, in that if you want additionalProperties code to be generated,
+	// you must specify an additionalProperties type
+	// If additionalProperties it true/false, this field will be non-nil.
+	if SchemaHasAdditionalProperties(schema) {
+		schemaDescriptor.HasAdditionalProperties = true
+		schemaDescriptor.AdditionalPropertiesType = "interface{}"
+
+		// If the additional properties have a type, use that.
+		if schema.AdditionalProperties != nil {
+			propType, err := schemaToGoType(schema.AdditionalProperties, true)
+			if err != nil {
+				return SchemaDescriptor{}, fmt.Errorf("error generating schema for additionalProperties: %s", err)
+			}
+			schemaDescriptor.HasAdditionalProperties = true
+			schemaDescriptor.AdditionalPropertiesType = propType
+		}
+	}
+
+	if schema.PatternProperties != "" {
+		return SchemaDescriptor{}, errors.New("pattern_properties are not yet supported")
+	}
+
+	return schemaDescriptor, nil
 }
 
 // Given a list of schema descriptors, produce corresponding field names with
 // JSON annotations
-func GenFieldsFromSchemaDescriptors(desc []SchemaDescriptor) []string {
+func GenFieldsFromSchemaDescriptors(desc []FieldDescriptor) []string {
 	var fields []string
 	for _, s := range desc {
 		field := fmt.Sprintf("    %s %s", s.GoName, s.GoType)
@@ -69,12 +95,17 @@ func GenFieldsFromSchemaDescriptors(desc []SchemaDescriptor) []string {
 
 // Given the list of schema descriptors above, generate a Go struct to represent
 // a type, with one field per SchemaDescriptor
-func GenStructFromSchemaDescriptors(desc []SchemaDescriptor) string {
+func GenStructFromSchemaDescriptor(desc SchemaDescriptor) string {
 	// Start out with struct {
 	objectParts := []string{"struct {"}
 	// Append all the field definitions
-	objectParts = append(objectParts, GenFieldsFromSchemaDescriptors(desc)...)
+	objectParts = append(objectParts, GenFieldsFromSchemaDescriptors(desc.Fields)...)
 	// Close the struct
+	if desc.HasAdditionalProperties {
+		objectParts = append(objectParts,
+			fmt.Sprintf("additionalProperties map[string]%s `json:\"-\"`",
+				desc.AdditionalPropertiesType))
+	}
 	objectParts = append(objectParts, "}")
 	return strings.Join(objectParts, "\n")
 }
@@ -107,12 +138,12 @@ func GenStructFromAllOf(allOf []*openapi3.SchemaRef) (string, error) {
 		} else {
 			// Inline all the fields from the schema into the output struct,
 			// just like in the simple case of generating an object.
-			descriptors, err := DescribeSchemaProperties(val)
+			descriptor, err := DescribeSchemaProperties(val)
 			if err != nil {
 				return "", err
 			}
 			objectParts = append(objectParts, "   // Embedded fields due to inline allOf schema")
-			objectParts = append(objectParts, GenFieldsFromSchemaDescriptors(descriptors)...)
+			objectParts = append(objectParts, GenFieldsFromSchemaDescriptors(descriptor.Fields)...)
 
 		}
 	}
@@ -123,9 +154,10 @@ func GenStructFromAllOf(allOf []*openapi3.SchemaRef) (string, error) {
 // This structure is passed into our type generation code to give the templating
 // system the context needed to produce our type definitions.
 type TypeDefinition struct {
-	TypeName     string // The Go type name of an object
-	JsonTypeName string // The corresponding JSON field name
-	TypeDef      string // The Go type definition for the type
+	TypeName     string           // The Go type name of an object
+	JsonTypeName string           // The corresponding JSON field name
+	TypeDef      string           // The Go type definition for the type
+	Descriptor   SchemaDescriptor // Lots of information about the schema, including fields
 }
 
 // This function recursively walks the given schema and generates a Go type to represent
@@ -133,8 +165,6 @@ type TypeDefinition struct {
 // a concrete Go type.
 // "required" tells us if this field is required. Optional fields have a
 // * prepended in the correct place.
-// skipRef tells us not to use the top level Ref, instead use the resolved
-// type. This is only set to true for handling AllOf
 func schemaToGoType(sref *openapi3.SchemaRef, required bool) (string, error) {
 	schema := sref.Value
 	// We can't support this in any meaningful way
@@ -194,7 +224,7 @@ func schemaToGoType(sref *openapi3.SchemaRef, required bool) (string, error) {
 			if err != nil {
 				return "", err
 			}
-			outType = GenStructFromSchemaDescriptors(desc)
+			outType = GenStructFromSchemaDescriptor(desc)
 		}
 
 		if !required {

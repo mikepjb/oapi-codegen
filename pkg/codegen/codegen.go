@@ -150,6 +150,9 @@ func Generate(swagger *openapi3.Swagger, packageName string, opts Options) (stri
 		if strings.Contains(str, "xml.") {
 			imports = append(imports, "encoding/xml")
 		}
+		if strings.Contains(str, "errors.") {
+			imports = append(imports, "github.com/pkg/errors")
+		}
 	}
 
 	importsOut, err := GenerateImports(t, imports, packageName)
@@ -243,15 +246,22 @@ func GenerateTypesForSchemas(t *template.Template, schemas map[string]*openapi3.
 	// We're going to define Go types for every object under components/schemas
 	for _, schemaName := range SortedSchemaKeys(schemas) {
 		schemaRef := schemas[schemaName]
+
 		typeDef, err := schemaToGoType(schemaRef, true)
 		if err != nil {
 			return "", errors.Wrap(err, fmt.Sprintf("error converting Schema %s to Go type", schemaName))
+		}
+
+		schemaDesc, err := DescribeSchemaProperties(schemaRef.Value)
+		if err != nil {
+			return "", errors.Wrap(err, "error generating schema description")
 		}
 
 		types = append(types, TypeDefinition{
 			JsonTypeName: schemaName,
 			TypeName:     ToCamelCase(schemaName),
 			TypeDef:      typeDef,
+			Descriptor:   schemaDesc,
 		})
 	}
 
@@ -260,7 +270,12 @@ func GenerateTypesForSchemas(t *template.Template, schemas map[string]*openapi3.
 		return "", errors.Wrap(err, "error generating type definitions")
 	}
 
-	return typesOut, nil
+	propsOut, err := GenerateAdditionalPropertyBoilerplate(t, types)
+	if err != nil {
+		return "", errors.Wrap(err, "error generating additional properties")
+	}
+
+	return typesOut + "\n" + propsOut, nil
 }
 
 // Generates type definitions for any custom types defined in the
@@ -434,6 +449,36 @@ func GenerateImports(t *template.Template, imports []string, packageName string)
 	err = w.Flush()
 	if err != nil {
 		return "", errors.Wrap(err, "error flushing output buffer for imports")
+	}
+	return buf.String(), nil
+}
+
+// Generate all the glue code which provides the API for interacting with
+// additional properties and JSON-ification
+func GenerateAdditionalPropertyBoilerplate(t *template.Template, types []TypeDefinition) (string, error) {
+	var buf bytes.Buffer
+	w := bufio.NewWriter(&buf)
+
+	var filteredTypes []TypeDefinition
+	for _, t := range types {
+		if t.Descriptor.HasAdditionalProperties {
+			filteredTypes = append(filteredTypes, t)
+		}
+	}
+
+	context := struct {
+		Types []TypeDefinition
+	}{
+		Types: filteredTypes,
+	}
+
+	err := t.ExecuteTemplate(w, "additional-properties.tmpl", context)
+	if err != nil {
+		return "", errors.Wrap(err, "error generating additional properties code")
+	}
+	err = w.Flush()
+	if err != nil {
+		return "", errors.Wrap(err, "error flushing output buffer for additional properties")
 	}
 	return buf.String(), nil
 }

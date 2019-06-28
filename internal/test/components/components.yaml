@@ -15,13 +15,50 @@ components:
       required:
         - role
         - firstName
-#    AdditionalPropertiesObject:
-#      type: object
-#      properties:
-#        name:
-#          type: string
-#      additionalProperties:
-#        type: integer
+    AdditionalPropertiesObject1:
+      description: Has additional properties of type int
+      type: object
+      properties:
+        name:
+          type: string
+        id:
+          type: integer
+        optional:
+          type: string
+      required: [name, id]
+      additionalProperties:
+        type: integer
+    AdditionalPropertiesObject2:
+      description: Does not allow additional properties
+      type: object
+      properties:
+        name:
+          type: string
+        id:
+          type: integer
+      required: [name, id]
+      additionalProperties: false
+    AdditionalPropertiesObject3:
+      description: Allows any additional property
+      type: object
+      properties:
+        name:
+          type: string
+      required: [name]
+      additionalProperties: true
+    AdditionalPropertiesObject4:
+      description: Has anonymous field which has additional properties
+      type: object
+      properties:
+        field_ap:
+          type: object
+          properties:
+            name:
+              type: string
+          required: [name]
+          additionalProperties: true
+      required: [field_ap]
+      additionalProperties: true
     ObjectWithJsonField:
       type: object
       properties:

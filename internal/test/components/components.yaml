@@ -4,6 +4,29 @@ info:
   title: Test Server
   license:
     name: MIT
+paths:
+  /params_with_add_props:
+    get:
+      operationId: ParamsWithAddProps
+      description: |
+        A path with parameters and a body which require additional properties
+      parameters:
+        - name: p1
+          in: query
+          required: true
+          style: simple
+          schema:
+            type: object
+            additionalProperties: true
+        - name: p2
+          in: query
+          required: true
+          schema:
+            properties:
+              inner:
+                type: object
+                additionalProperties: true
+            required: [inner]
 components:
   schemas:
     SchemaObject:
@@ -50,6 +73,8 @@ components:
       description: Has anonymous field which has additional properties
       type: object
       properties:
+        name:
+          type: string
         field_ap:
           type: object
           properties:
@@ -57,7 +82,7 @@ components:
               type: string
           required: [name]
           additionalProperties: true
-      required: [field_ap]
+      required: [field_ap, name]
       additionalProperties: true
     ObjectWithJsonField:
       type: object

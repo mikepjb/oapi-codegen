@@ -305,19 +305,11 @@ func SchemaHasAdditionalProperties(schema *openapi3.Schema) bool {
 	return false
 }
 
-// Returns the data type for additional properties, or empty string if there
-// aren't any
-func SchemaAdditionalPropertiesType(schema *openapi3.Schema) (string, error) {
-	if SchemaHasAdditionalProperties(schema) {
-		propType := "interface{}"
-		if schema.AdditionalProperties != nil {
-			var err error
-			propType, err = schemaToGoType(schema.AdditionalProperties, true)
-			if err != nil {
-				return "", errors.Wrap(err, "error converting additional property type to a Go type")
-			}
-		}
-		return propType, nil
+// This converts a path, like Object/field1/nestedField into a go
+// type name.
+func PathToTypeName(path []string) string {
+	for i, p := range path {
+		path[i] = ToCamelCase(p)
 	}
-	return "", nil
+	return strings.Join(path, "_")
 }

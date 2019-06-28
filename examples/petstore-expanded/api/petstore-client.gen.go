@@ -36,7 +36,7 @@ type ClientInterface interface {
 	FindPets(ctx context.Context, params *FindPetsParams) (*http.Response, error)
 
 	// AddPet request with JSON body
-	AddPet(ctx context.Context, body NewPet) (*http.Response, error)
+	AddPet(ctx context.Context, body AddPetRequestBody) (*http.Response, error)
 
 	// DeletePet request
 	DeletePet(ctx context.Context, id int64) (*http.Response, error)
@@ -62,7 +62,7 @@ func (c *Client) FindPets(ctx context.Context, params *FindPetsParams) (*http.Re
 }
 
 // AddPet request with JSON body
-func (c *Client) AddPet(ctx context.Context, body NewPet) (*http.Response, error) {
+func (c *Client) AddPet(ctx context.Context, body AddPetRequestBody) (*http.Response, error) {
 	req, err := NewAddPetRequest(c.Server, body)
 	if err != nil {
 		return nil, err
@@ -260,7 +260,7 @@ func ParseaddPetResponse(rsp *http.Response) (*addPetResponse, error) {
 }
 
 // AddPet request with JSON body returning *AddPetResponse
-func (c *ClientWithResponses) AddPetWithResponse(ctx context.Context, body NewPet) (*addPetResponse, error) {
+func (c *ClientWithResponses) AddPetWithResponse(ctx context.Context, body AddPetRequestBody) (*addPetResponse, error) {
 	rsp, err := c.AddPet(ctx, body)
 	if err != nil {
 		return nil, err
@@ -441,7 +441,7 @@ func NewFindPetsRequest(server string, params *FindPetsParams) (*http.Request, e
 }
 
 // NewAddPetRequest generates requests for AddPet with JSON body
-func NewAddPetRequest(server string, body NewPet) (*http.Request, error) {
+func NewAddPetRequest(server string, body AddPetRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
 
 	buf, err := json.Marshal(body)

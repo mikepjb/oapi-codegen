@@ -1,7 +1,13 @@
-{{range .Types}}
+{{range .Types}}{{$addType := .Schema.AdditionalPropertiesType.TypeDecl}}
+
+// Returns the additional properties dict
+func (a {{.TypeName}}) AdditionalProperties() map[string]{{$addType}} {
+    return a.additionalProperties
+}
+
 // Getter for additional properties for {{.TypeName}}. Returns the specified
 // element and whether it was found
-func (a {{.TypeName}}) Get(fieldName string) (value {{.Descriptor.AdditionalPropertiesType}}, found bool) {
+func (a {{.TypeName}}) Get(fieldName string) (value {{$addType}}, found bool) {
     if a.additionalProperties != nil {
         value, found = a.additionalProperties[fieldName]
     }
@@ -9,9 +15,9 @@ func (a {{.TypeName}}) Get(fieldName string) (value {{.Descriptor.AdditionalProp
 }
 
 // Setter for additional properties for {{.TypeName}}
-func (a *{{.TypeName}}) Set(fieldName string, value {{.Descriptor.AdditionalPropertiesType}}) {
+func (a *{{.TypeName}}) Set(fieldName string, value {{$addType}}) {
     if a.additionalProperties == nil {
-        a.additionalProperties = make(map[string]{{.Descriptor.AdditionalPropertiesType}})
+        a.additionalProperties = make(map[string]{{$addType}})
     }
     a.additionalProperties[fieldName] = value
 }
@@ -23,18 +29,18 @@ func (a *{{.TypeName}}) UnmarshalJSON(b []byte) error {
 	if err != nil {
 		return err
 	}
-{{range .Descriptor.Fields}}
-    if raw, found := object["{{.JsonName}}"]; found {
-        err = json.Unmarshal(raw, &a.{{.GoName}})
+{{range .Schema.Properties}}
+    if raw, found := object["{{.JsonFieldName}}"]; found {
+        err = json.Unmarshal(raw, &a.{{.GoFieldName}})
         if err != nil {
-            return errors.Wrap(err, "error reading '{{.JsonName}}'")
+            return errors.Wrap(err, "error reading '{{.JsonFieldName}}'")
         }
-        delete(object, "{{.JsonName}}")
+        delete(object, "{{.JsonFieldName}}")
     }
 {{end}}
-    a.additionalProperties = make(map[string]{{.Descriptor.AdditionalPropertiesType}})
+    a.additionalProperties = make(map[string]{{$addType}})
     for fieldName, fieldBuf := range object {
-        var fieldVal {{.Descriptor.AdditionalPropertiesType}}
+        var fieldVal {{$addType}}
         err := json.Unmarshal(fieldBuf, &fieldVal)
         if err != nil {
             return errors.Wrap(err, fmt.Sprintf("error unmarshaling field %s", fieldName))
@@ -48,11 +54,11 @@ func (a *{{.TypeName}}) UnmarshalJSON(b []byte) error {
 func (a {{.TypeName}}) MarshalJSON() ([]byte, error) {
     var err error
     object := make(map[string]json.RawMessage)
-{{range .Descriptor.Fields}}
-{{if not .Required}}if a.{{.GoName}} != nil { {{end}}
-    object["{{.JsonName}}"], err = json.Marshal(a.{{.GoName}})
+{{range .Schema.Properties}}
+{{if not .Required}}if a.{{.GoFieldName}} != nil { {{end}}
+    object["{{.JsonFieldName}}"], err = json.Marshal(a.{{.GoFieldName}})
     if err != nil {
-        return nil, errors.Wrap(err, fmt.Sprintf("error marshaling '{{.JsonName}}'"))
+        return nil, errors.Wrap(err, fmt.Sprintf("error marshaling '{{.JsonFieldName}}'"))
     }
 {{if not .Required}} }{{end}}
 {{end}}
